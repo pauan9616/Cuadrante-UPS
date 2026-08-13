@@ -290,15 +290,28 @@ els.saveBtn.addEventListener('click', async () => {
   if (!currentDocId || !currentMonthDoc) return;
   els.saveBtn.disabled = true;
   els.saveBarText.textContent = 'Guardando...';
+
+  const timeoutMs = 12000;
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
+  );
+
   try {
-    await updateDoc(doc(db, 'cuadrantes', currentDocId), {
-      data: currentMonthDoc.data,
-      updatedAt: serverTimestamp(),
-    });
+    await Promise.race([
+      updateDoc(doc(db, 'cuadrantes', currentDocId), {
+        data: currentMonthDoc.data,
+        updatedAt: serverTimestamp(),
+      }),
+      timeout,
+    ]);
     setDirty(false);
   } catch (err) {
     console.error(err);
-    els.saveBarText.textContent = 'Error al guardar. Vuelve a intentarlo.';
+    if (err.message === 'TIMEOUT') {
+      els.saveBarText.textContent = 'Está tardando demasiado (sin conexión o bloqueado). Pulsa Guardar para reintentar.';
+    } else {
+      els.saveBarText.textContent = `Error al guardar: ${err.code || err.message || 'desconocido'}`;
+    }
   } finally {
     els.saveBtn.disabled = false;
   }
