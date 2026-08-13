@@ -1,0 +1,9 @@
+{
+  "name": "Cuadrante",
+  "short_name": "Cuadrante",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FAF8F4",
+  "theme_color": "#12213A",
+  "icons": []
+}
