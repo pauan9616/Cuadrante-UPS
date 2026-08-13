@@ -1,0 +1,162 @@
+:root {
+  --ink: #1C2430;
+  --paper: #FAF8F4;
+  --paper-2: #F1EEE7;
+  --line: #D8DEE9;
+  --navy: #12213A;
+  --amber: #E8A33D;
+  --weekend-tint: #EFE3D0;
+  --radius: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 4rem;
+}
+
+h1, h2 { font-family: 'Space Grotesk', sans-serif; margin: 0; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: var(--navy);
+  color: #fff;
+  flex-wrap: wrap;
+}
+.topbar h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.01em; }
+.topbar-actions { display: flex; align-items: center; gap: 0.6rem; }
+
+select#month-select {
+  font-family: inherit;
+  background: #1C2E4D;
+  color: #fff;
+  border: 1px solid #33456B;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+
+.btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
+.btn-ghost:hover { background: rgba(255,255,255,0.1); }
+.btn-primary { background: var(--amber); color: var(--navy); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.admin-panel {
+  margin: 1rem;
+  padding: 1rem;
+  background: var(--paper-2);
+  border: 1px dashed #B9A98A;
+  border-radius: var(--radius);
+}
+.admin-panel h2 { font-size: 1rem; margin-bottom: 0.25rem; }
+.admin-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.admin-row input[type="text"] {
+  font-family: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.hint { font-size: 0.8rem; color: #5A6472; margin: 0.4rem 0 0; }
+.error { color: #B3261E; font-size: 0.8rem; }
+
+dialog { border: none; border-radius: var(--radius); padding: 1.25rem; max-width: 320px; width: 90vw; }
+dialog::backdrop { background: rgba(18,33,58,0.5); }
+dialog form { display: flex; flex-direction: column; gap: 0.7rem; }
+dialog label { display: flex; flex-direction: column; font-size: 0.8rem; gap: 0.3rem; font-family: 'Space Grotesk', sans-serif; }
+dialog input { font-family: inherit; padding: 0.5rem; border: 1px solid var(--line); border-radius: 8px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.3rem; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.9rem 1rem 0.2rem;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+.cuadrante { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+.section-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  overflow-x: auto;
+}
+.section-card h2 { font-size: 1rem; margin-bottom: 0.6rem; color: var(--navy); }
+
+table.grid { border-collapse: collapse; font-size: 0.72rem; min-width: 100%; }
+table.grid th, table.grid td {
+  border: 1px solid var(--line);
+  padding: 0.3rem 0.4rem;
+  text-align: center;
+  white-space: nowrap;
+}
+table.grid th { background: var(--paper-2); font-weight: 600; }
+table.grid th.weekday-row { font-size: 0.68rem; color: #5A6472; }
+table.grid th.weekend, table.grid td.weekend { background: var(--weekend-tint); }
+th.person-name {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  min-width: 160px;
+}
+tr.group-shift-row th.person-name,
+tr.group-shift-row td { font-style: italic; }
+
+td.empty { color: #C6CCD6; }
+
+.cell-chip {
+  min-width: 1.6rem;
+  justify-content: center;
+  font-size: 0.68rem;
+}
+.cell-chip.inherited { opacity: 0.55; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
+
+.empty-state { text-align: center; padding: 3rem 1rem; }
+
+@media (max-width: 600px) {
+  .topbar h1 { font-size: 0.95rem; }
+  table.grid { font-size: 0.65rem; }
+}
