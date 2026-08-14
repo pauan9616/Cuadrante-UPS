@@ -159,18 +159,27 @@ dialog input { font-family: inherit; padding: 0.5rem; border: 1px solid var(--li
 
 .grid-names {
   flex: 0 0 auto;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 0.72rem;
+  display: flex;
+  flex-direction: column;
 }
-.grid-names th, .grid-names td {
+.name-row {
+  display: flex;
+  align-items: center;
   border: 1px solid var(--line);
   padding: 0.3rem 0.4rem;
   white-space: nowrap;
-  height: 1.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   box-sizing: border-box;
+  min-width: 140px;
+  font-size: 0.72rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
 }
-.grid-names th { background: var(--paper-2); font-weight: 600; }
+.name-row-header { background: var(--paper-2); }
+.name-row-italic { font-style: italic; }
 
 .grid-scroll { overflow-x: auto; flex: 1 1 auto; }
 
@@ -180,20 +189,11 @@ table.grid th, table.grid td {
   padding: 0.3rem 0.4rem;
   text-align: center;
   white-space: nowrap;
-  height: 1.9rem;
   box-sizing: border-box;
 }
 table.grid th { background: var(--paper-2); font-weight: 600; }
 table.grid th.weekday-row { font-size: 0.68rem; color: #5A6472; }
 table.grid th.weekend, table.grid td.weekend { background: var(--weekend-tint); }
-th.person-name {
-  text-align: left;
-  background: #fff;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  min-width: 140px;
-}
-tr.group-shift-row th.person-name,
 tr.group-shift-row td { font-style: italic; }
 
 td.empty { color: #C6CCD6; }
@@ -467,15 +467,14 @@ select#overwrite-select {
     overflow: hidden;
   }
   .grid-names { flex: 0 0 auto; font-size: 5.5pt; }
-  .grid-names th, .grid-names td {
+  .name-row {
     padding: 0.06rem 0.1rem;
-  }
-  th.person-name {
     min-width: 0;
     max-width: 85pt;
     white-space: normal;
     word-break: break-word;
     font-size: 5.5pt;
+    height: auto !important;
   }
   .cell-chip {
     min-width: 0;
