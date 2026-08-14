@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Cuadrante</title>
+
+<!-- Permite "Añadir a pantalla de inicio" en iPhone -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Cuadrante" />
+<meta name="theme-color" content="#12213A" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="manifest" href="manifest.json" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div id="splash-screen" class="splash">
+  <div class="splash-card">
+    <h1 class="splash-title">Cuadrante</h1>
+    <p class="splash-subtitle">Turnos del grupo</p>
+    <div class="splash-actions">
+      <button id="splash-guest-btn" class="btn btn-primary">Ver cuadrante</button>
+      <button id="splash-login-btn" class="btn btn-ghost">Acceder</button>
+    </div>
+  </div>
+</div>
+
+<header class="topbar">
+  <h1 id="page-title">Cuadrante</h1>
+  <div class="topbar-actions">
+    <label for="month-select" id="month-select-label" class="month-select-label" hidden>Ver mes</label>
+    <select id="month-select" hidden></select>
+    <button id="day-report-btn" class="btn btn-ghost">Ver un día</button>
+    <button id="export-pdf-btn" class="btn btn-ghost">Exportar PDF</button>
+    <button id="login-btn" class="btn btn-ghost">Acceder</button>
+    <button id="logout-btn" class="btn btn-ghost" hidden>Salir</button>
+  </div>
+</header>
+
+<section id="admin-panel" class="admin-panel" hidden>
+  <h2>Publicar cuadrante</h2>
+  <p class="hint">Sube el Excel del mes. Se leerá automáticamente y podrás revisarlo antes de publicarlo.</p>
+  <p class="hint admin-note">⚠️ Este panel solo prepara lo que se va a <strong>publicar</strong>; no cambia lo que estás viendo. Para ver otro mes ya publicado, usa el desplegable de arriba, junto a "Acceder".</p>
+  <label for="overwrite-select" class="field-label">¿Sustituir un mes ya publicado, o publicar uno nuevo?</label>
+  <div class="admin-row">
+    <select id="overwrite-select">
+      <option value="">— Publicar como mes nuevo —</option>
+    </select>
+    <input type="file" id="file-input" accept=".xls,.xlsx" />
+  </div>
+  <div class="admin-row">
+    <input type="text" id="month-label" placeholder="Ej. Septiembre 2026" />
+    <button id="publish-btn" class="btn btn-primary" disabled>Publicar</button>
+  </div>
+  <p id="overwrite-hint" class="overwrite-hint" hidden></p>
+  <p id="publish-status" class="hint"></p>
+
+  <hr class="divider" />
+
+  <div class="admin-row">
+    <button id="edit-mode-btn" class="btn btn-ghost-dark" disabled>Activar edición manual</button>
+  </div>
+  <p class="hint">Con la edición activada, toca cualquier turno del cuadrante para cambiarlo sin subir un Excel nuevo (bajas, permisos, cambios de última hora...).</p>
+
+  <hr class="divider" />
+
+  <div class="admin-row">
+    <button id="assign-posts-btn" class="btn btn-ghost-dark" disabled>Asignar puestos de un día</button>
+  </div>
+  <p class="hint">Elige un día y reparte a las personas que trabajan ese día entre los puestos del servicio (calabozos, comisaría, delegación...). Esto es lo que se usa al exportar el parte diario en PDF.</p>
+</section>
+
+<dialog id="login-modal">
+  <form id="login-form" method="dialog">
+    <div class="dialog-header">
+      <h2>Acceso administrador</h2>
+      <button type="button" id="close-login-x" class="dialog-close-x" aria-label="Cerrar">×</button>
+    </div>
+    <label>Correo<input type="email" id="login-email" required autocomplete="username" /></label>
+    <label>Contraseña<input type="password" id="login-password" required autocomplete="current-password" /></label>
+    <p id="login-error" class="error"></p>
+    <div class="dialog-actions">
+      <button type="button" id="cancel-login" class="btn btn-ghost">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Entrar</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="legend" class="legend"></div>
+
+<main id="cuadrante" class="cuadrante"></main>
+
+<main id="day-report" class="day-report">
+  <div class="day-report-header">
+    <button id="day-report-back" class="btn btn-ghost-dark">← Volver al mes completo</button>
+    <button id="day-report-pdf" class="btn btn-primary">Exportar este día a PDF</button>
+  </div>
+  <h2 id="day-report-title"></h2>
+  <div id="day-report-body" class="day-report-body"></div>
+</main>
+
+<p id="empty-state" class="hint empty-state" hidden>
+  Todavía no hay ningún cuadrante publicado. Cuando el administrador suba el primero, aparecerá aquí.
+</p>
+
+<dialog id="day-picker-modal">
+  <form method="dialog">
+    <h2>¿Qué día quieres ver?</h2>
+    <div id="day-picker-grid" class="day-picker-grid"></div>
+    <div class="dialog-actions">
+      <button type="button" id="day-picker-cancel" class="btn btn-ghost-dark">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="post-assign-modal" class="post-assign-modal">
+  <form id="post-assign-form" method="dialog">
+    <div class="dialog-header">
+      <h2 id="post-assign-title">Asignar puestos</h2>
+      <button type="button" id="post-assign-close-x" class="dialog-close-x" aria-label="Cerrar">×</button>
+    </div>
+    <div id="post-assign-body"></div>
+    <p id="post-assign-status" class="hint"></p>
+    <div class="dialog-actions">
+      <button type="button" id="post-assign-cancel" class="btn btn-ghost-dark">Cancelar</button>
+      <button type="button" id="post-assign-save" class="btn btn-primary">Guardar asignación</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="cell-edit-modal">
+  <form id="cell-edit-form" method="dialog">
+    <h2 id="cell-edit-title">Editar turno</h2>
+    <div id="cell-edit-options" class="code-options"></div>
+    <div class="dialog-actions">
+      <button type="button" id="cell-edit-cancel" class="btn btn-ghost-dark">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="save-bar" class="save-bar" hidden>
+  <span id="save-bar-text">Tienes cambios sin guardar</span>
+  <div class="save-bar-actions">
+    <button id="discard-btn" class="btn btn-ghost">Descartar</button>
+    <button id="save-btn" class="btn btn-primary">Guardar cambios</button>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
