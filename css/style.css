@@ -151,11 +151,28 @@ dialog input { font-family: inherit; padding: 0.5rem; border: 1px solid var(--li
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 0.9rem;
-  overflow-x: auto;
+  overflow: hidden;
 }
 .section-card h2 { font-size: 1rem; margin-bottom: 0.6rem; color: var(--navy); }
 
-table.grid { border-collapse: separate; border-spacing: 0; font-size: 0.72rem; min-width: 100%; }
+.grid-wrapper { display: flex; align-items: flex-start; }
+
+.grid-names {
+  flex: 0 0 auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.72rem;
+}
+.grid-names th, .grid-names td {
+  border: 1px solid var(--line);
+  padding: 0.3rem 0.4rem;
+  white-space: nowrap;
+}
+.grid-names th { background: var(--paper-2); font-weight: 600; }
+
+.grid-scroll { overflow-x: auto; flex: 1 1 auto; }
+
+table.grid { border-collapse: separate; border-spacing: 0; font-size: 0.72rem; }
 table.grid th, table.grid td {
   border: 1px solid var(--line);
   padding: 0.3rem 0.4rem;
@@ -170,13 +187,7 @@ th.person-name {
   background: #fff;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
-  min-width: 160px;
-}
-table.grid tr > *:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  box-shadow: 2px 0 0 0 var(--line);
+  min-width: 140px;
 }
 tr.group-shift-row th.person-name,
 tr.group-shift-row td { font-style: italic; }
@@ -440,6 +451,8 @@ select#overwrite-select {
     overflow: visible;
   }
   .section-card h2 { font-size: 8pt; margin-bottom: 0.2rem; }
+  .grid-wrapper { display: flex; }
+  .grid-scroll { overflow: visible; flex: 1 1 auto; }
   table.grid {
     font-size: 5.5pt;
     width: 100%;
@@ -449,11 +462,13 @@ select#overwrite-select {
     padding: 0.06rem 0.1rem;
     overflow: hidden;
   }
-  th.person-name, table.grid tr > *:first-child {
-    position: static;
-    box-shadow: none;
+  .grid-names { flex: 0 0 auto; font-size: 5.5pt; }
+  .grid-names th, .grid-names td {
+    padding: 0.06rem 0.1rem;
+  }
+  th.person-name {
     min-width: 0;
-    width: 11%;
+    max-width: 85pt;
     white-space: normal;
     word-break: break-word;
     font-size: 5.5pt;
