@@ -244,6 +244,10 @@ select#overwrite-select {
 }
 
 /* ---------- Impresión / exportar a PDF ---------- */
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
 @media print {
   * {
     -webkit-print-color-adjust: exact;
@@ -253,18 +257,50 @@ select#overwrite-select {
   .topbar {
     position: static;
     box-shadow: none;
+    padding: 0 0 0.4rem;
   }
   .topbar-actions,
   .admin-panel,
   .save-bar,
   dialog { display: none !important; }
-  .legend { padding: 0.6rem 0; }
+  .legend {
+    padding: 0.3rem 0;
+    gap: 0.2rem;
+  }
+  .legend .chip {
+    font-size: 6.5pt;
+    padding: 0.1rem 0.3rem;
+  }
+  .cuadrante { padding: 0; gap: 0.5rem; }
   .section-card {
     break-inside: avoid;
     box-shadow: none;
     border: 1px solid #999;
+    padding: 0.3rem;
+    overflow: visible;
+  }
+  .section-card h2 { font-size: 8pt; margin-bottom: 0.2rem; }
+  table.grid {
+    font-size: 5.5pt;
+    width: 100%;
+    table-layout: fixed;
+  }
+  table.grid th, table.grid td {
+    padding: 0.06rem 0.1rem;
+    overflow: hidden;
   }
   th.person-name, table.grid tr > *:first-child {
+    position: static;
     box-shadow: none;
+    min-width: 0;
+    width: 11%;
+    white-space: normal;
+    word-break: break-word;
+    font-size: 5.5pt;
+  }
+  .cell-chip {
+    min-width: 0;
+    padding: 0 0.1rem;
+    font-size: 5.5pt;
   }
 }
