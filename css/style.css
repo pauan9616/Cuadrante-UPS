@@ -167,6 +167,8 @@ dialog input { font-family: inherit; padding: 0.5rem; border: 1px solid var(--li
   border: 1px solid var(--line);
   padding: 0.3rem 0.4rem;
   white-space: nowrap;
+  height: 1.9rem;
+  box-sizing: border-box;
 }
 .grid-names th { background: var(--paper-2); font-weight: 600; }
 
@@ -178,6 +180,8 @@ table.grid th, table.grid td {
   padding: 0.3rem 0.4rem;
   text-align: center;
   white-space: nowrap;
+  height: 1.9rem;
+  box-sizing: border-box;
 }
 table.grid th { background: var(--paper-2); font-weight: 600; }
 table.grid th.weekday-row { font-size: 0.68rem; color: #5A6472; }
