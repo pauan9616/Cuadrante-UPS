@@ -804,7 +804,9 @@ function render(monthDoc) {
   els.cuadrante.classList.toggle('edit-mode', editMode);
   renderLegend();
   els.cuadrante.innerHTML = '';
-  monthDoc.data.sections.forEach((section, si) => els.cuadrante.appendChild(renderSection(section, si)));
+  const cards = monthDoc.data.sections.map((section, si) => renderSection(section, si));
+  cards.forEach((card) => els.cuadrante.appendChild(card));
+  syncGridRowHeights(cards);
 }
 
 function renderLegend() {
@@ -830,11 +832,12 @@ function renderSection(section, sectionIndex) {
   const wrapper = document.createElement('div');
   wrapper.className = 'grid-wrapper';
 
-  // Tabla fija con solo la columna de nombres (no se desplaza).
-  const namesTable = document.createElement('table');
-  namesTable.className = 'grid-names';
+  // Columna de nombres: divs sencillos, no una tabla — su altura se copia
+  // de la tabla de días justo después de dibujarla, para que sea
+  // imposible que se desalineen.
+  const namesCol = document.createElement('div');
+  namesCol.className = 'grid-names';
 
-  // Tabla con los días, dentro de un contenedor que sí se desplaza horizontalmente.
   const daysScroll = document.createElement('div');
   daysScroll.className = 'grid-scroll';
   const daysTable = document.createElement('table');
@@ -842,10 +845,7 @@ function renderSection(section, sectionIndex) {
   daysScroll.appendChild(daysTable);
 
   // Fila 1: número de día
-  const namesHead1 = document.createElement('tr');
-  namesHead1.appendChild(th(''));
-  namesTable.appendChild(namesHead1);
-
+  namesCol.appendChild(nameRowDiv('', { header: true }));
   const daysHead1 = document.createElement('tr');
   section.dayNumbers.forEach((d, i) => {
     const cell = th(String(d));
@@ -855,10 +855,7 @@ function renderSection(section, sectionIndex) {
   daysTable.appendChild(daysHead1);
 
   // Fila 2: letra del día de la semana
-  const namesHead2 = document.createElement('tr');
-  namesHead2.appendChild(th(''));
-  namesTable.appendChild(namesHead2);
-
+  namesCol.appendChild(nameRowDiv('', { header: true }));
   const daysHead2 = document.createElement('tr');
   section.weekdays.forEach((w) => {
     const cell = th(w || '');
@@ -870,13 +867,7 @@ function renderSection(section, sectionIndex) {
 
   // Fila de turno base del grupo (si existe)
   if (section.groupShift) {
-    const nameRow = document.createElement('tr');
-    nameRow.className = 'group-shift-row';
-    const labelCell = th('Turno del grupo');
-    labelCell.classList.add('person-name');
-    nameRow.appendChild(labelCell);
-    namesTable.appendChild(nameRow);
-
+    namesCol.appendChild(nameRowDiv('Turno del grupo', { italic: true }));
     const dataRow = document.createElement('tr');
     dataRow.className = 'group-shift-row';
     section.groupShift.forEach((code, i) => {
@@ -887,13 +878,7 @@ function renderSection(section, sectionIndex) {
 
   // Filas de personas
   section.people.forEach((person, personIndex) => {
-    const nameRow = document.createElement('tr');
-    const nameCell = document.createElement('th');
-    nameCell.scope = 'row';
-    nameCell.className = 'person-name';
-    nameCell.textContent = person.name;
-    nameRow.appendChild(nameCell);
-    namesTable.appendChild(nameRow);
+    namesCol.appendChild(nameRowDiv(person.name));
 
     const dataRow = document.createElement('tr');
     person.shifts.forEach((code, dayIndex) => {
@@ -909,10 +894,35 @@ function renderSection(section, sectionIndex) {
     daysTable.appendChild(dataRow);
   });
 
-  wrapper.appendChild(namesTable);
+  wrapper.appendChild(namesCol);
   wrapper.appendChild(daysScroll);
   card.appendChild(wrapper);
+
+  // Referencias para poder sincronizar alturas después de insertar en el DOM.
+  card._daysTable = daysTable;
+  card._namesCol = namesCol;
   return card;
+}
+
+function nameRowDiv(text, opts = {}) {
+  const div = document.createElement('div');
+  div.className = 'name-row';
+  if (opts.header) div.classList.add('name-row-header');
+  if (opts.italic) div.classList.add('name-row-italic');
+  div.textContent = text;
+  return div;
+}
+
+// Copia la altura real (ya calculada por el navegador) de cada fila de la
+// tabla de días a la fila correspondiente de la columna de nombres.
+function syncGridRowHeights(cards) {
+  cards.forEach((card) => {
+    const rows = card._daysTable.querySelectorAll('tr');
+    const nameRows = card._namesCol.querySelectorAll('.name-row');
+    rows.forEach((tr, i) => {
+      if (nameRows[i]) nameRows[i].style.height = `${tr.offsetHeight}px`;
+    });
+  });
 }
 
 function th(text) {
@@ -939,6 +949,18 @@ function td(code, isWeekend, inherited) {
   el.appendChild(chip);
   return el;
 }
+
+// Vuelve a alinear las alturas si cambia el tamaño de la ventana (p. ej. al
+// girar el móvil), por si la fila de nombres ajusta su tamaño de fuente.
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (currentMonthDoc && els.cuadrante.style.display !== 'none') {
+      render(currentMonthDoc);
+    }
+  }, 200);
+});
 
 // ---------- Arranque ----------
 
