@@ -827,46 +827,75 @@ function renderSection(section, sectionIndex) {
   h2.textContent = section.name;
   card.appendChild(h2);
 
-  const table = document.createElement('table');
-  table.className = 'grid';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'grid-wrapper';
 
-  const theadDays = document.createElement('tr');
-  theadDays.appendChild(th(''));
+  // Tabla fija con solo la columna de nombres (no se desplaza).
+  const namesTable = document.createElement('table');
+  namesTable.className = 'grid-names';
+
+  // Tabla con los días, dentro de un contenedor que sí se desplaza horizontalmente.
+  const daysScroll = document.createElement('div');
+  daysScroll.className = 'grid-scroll';
+  const daysTable = document.createElement('table');
+  daysTable.className = 'grid';
+  daysScroll.appendChild(daysTable);
+
+  // Fila 1: número de día
+  const namesHead1 = document.createElement('tr');
+  namesHead1.appendChild(th(''));
+  namesTable.appendChild(namesHead1);
+
+  const daysHead1 = document.createElement('tr');
   section.dayNumbers.forEach((d, i) => {
     const cell = th(String(d));
     if (WEEKEND_LETTERS.has(section.weekdays[i])) cell.classList.add('weekend');
-    theadDays.appendChild(cell);
+    daysHead1.appendChild(cell);
   });
-  table.appendChild(theadDays);
+  daysTable.appendChild(daysHead1);
 
-  const theadWeek = document.createElement('tr');
-  theadWeek.appendChild(th(''));
+  // Fila 2: letra del día de la semana
+  const namesHead2 = document.createElement('tr');
+  namesHead2.appendChild(th(''));
+  namesTable.appendChild(namesHead2);
+
+  const daysHead2 = document.createElement('tr');
   section.weekdays.forEach((w) => {
     const cell = th(w || '');
     cell.classList.add('weekday-row');
     if (WEEKEND_LETTERS.has(w)) cell.classList.add('weekend');
-    theadWeek.appendChild(cell);
+    daysHead2.appendChild(cell);
   });
-  table.appendChild(theadWeek);
+  daysTable.appendChild(daysHead2);
 
+  // Fila de turno base del grupo (si existe)
   if (section.groupShift) {
-    const row = document.createElement('tr');
-    row.className = 'group-shift-row';
-    row.appendChild(th('Turno del grupo'));
+    const nameRow = document.createElement('tr');
+    nameRow.className = 'group-shift-row';
+    const labelCell = th('Turno del grupo');
+    labelCell.classList.add('person-name');
+    nameRow.appendChild(labelCell);
+    namesTable.appendChild(nameRow);
+
+    const dataRow = document.createElement('tr');
+    dataRow.className = 'group-shift-row';
     section.groupShift.forEach((code, i) => {
-      row.appendChild(td(code, WEEKEND_LETTERS.has(section.weekdays[i])));
+      dataRow.appendChild(td(code, WEEKEND_LETTERS.has(section.weekdays[i])));
     });
-    table.appendChild(row);
+    daysTable.appendChild(dataRow);
   }
 
+  // Filas de personas
   section.people.forEach((person, personIndex) => {
-    const row = document.createElement('tr');
+    const nameRow = document.createElement('tr');
     const nameCell = document.createElement('th');
     nameCell.scope = 'row';
     nameCell.className = 'person-name';
     nameCell.textContent = person.name;
-    row.appendChild(nameCell);
+    nameRow.appendChild(nameCell);
+    namesTable.appendChild(nameRow);
 
+    const dataRow = document.createElement('tr');
     person.shifts.forEach((code, dayIndex) => {
       const effective = code || (section.groupShift ? section.groupShift[dayIndex] : null);
       const inherited = !code && !!effective;
@@ -875,12 +904,14 @@ function renderSection(section, sectionIndex) {
         cell.classList.add('editable');
         cell.addEventListener('click', () => openCellEditor(sectionIndex, personIndex, dayIndex));
       }
-      row.appendChild(cell);
+      dataRow.appendChild(cell);
     });
-    table.appendChild(row);
+    daysTable.appendChild(dataRow);
   });
 
-  card.appendChild(table);
+  wrapper.appendChild(namesTable);
+  wrapper.appendChild(daysScroll);
+  card.appendChild(wrapper);
   return card;
 }
 
