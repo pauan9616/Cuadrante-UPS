@@ -1,6 +1,6 @@
 import { firebaseConfig } from './firebase-config.js';
 import { CODES, WEEKEND_LETTERS, codeInfo } from './codes.js';
-import { parseWorkbookArrayBuffer } from './parser.js';
+import { parseWorkbookAllSheets } from './parser.js';
 import { POST_GROUPS, ABSENCE_CODES, WORKING_CODES } from './posts.js';
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
@@ -26,13 +26,11 @@ const els = {
   cancelLogin: $('#cancel-login'),
   adminPanel: $('#admin-panel'),
   fileInput: $('#file-input'),
-  monthLabel: $('#month-label'),
+  detectedMonths: $('#detected-months'),
   publishBtn: $('#publish-btn'),
   publishStatus: $('#publish-status'),
   monthSelect: $('#month-select'),
   monthSelectLabel: $('#month-select-label'),
-  overwriteSelect: $('#overwrite-select'),
-  overwriteHint: $('#overwrite-hint'),
   editModeBtn: $('#edit-mode-btn'),
   legend: $('#legend'),
   cuadrante: $('#cuadrante'),
@@ -73,7 +71,6 @@ const WEEKDAY_FULL = { L: 'Lunes', M: 'Martes', X: 'Miércoles', J: 'Jueves', V:
 
 const MES_NOMBRES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
-let parsedPending = null;      // cuadrante recién leído del Excel, pendiente de publicar
 let monthsCache = [];          // [{id, label, year, month}]
 let currentDocId = null;       // id del mes actualmente mostrado
 let currentMonthDoc = null;    // { label, data:{title,sections} } - copia editable en memoria
@@ -158,91 +155,164 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// ---------- Subida y publicación ----------
+// ---------- Subida y publicación (varias hojas / meses a la vez) ----------
+
+let parsedSheets = []; // [{ sheetName, title, sections }]
 
 els.fileInput.addEventListener('change', async () => {
   const file = els.fileInput.files[0];
   if (!file) return;
   els.publishStatus.textContent = 'Leyendo archivo...';
+  els.detectedMonths.innerHTML = '';
+  els.publishBtn.disabled = true;
+  parsedSheets = [];
   try {
     const buf = await file.arrayBuffer();
-    parsedPending = parseWorkbookArrayBuffer(buf);
-    const guessedLabel = guessMonthLabel(file.name);
-    els.monthLabel.value = guessedLabel;
-
-    // ¿Coincide con un mes ya publicado? Lo preseleccionamos en el desplegable de sustitución.
-    const guessedSlug = slugify(guessedLabel);
-    const match = monthsCache.find((m) => m.id === guessedSlug);
-    els.overwriteSelect.value = match ? match.id : '';
-    updateOverwriteHint();
-
-    els.publishStatus.textContent = `Leído correctamente: ${parsedPending.sections.length} secciones, listo para publicar.`;
+    parsedSheets = parseWorkbookAllSheets(buf);
+    if (parsedSheets.length === 0) {
+      els.publishStatus.textContent = 'No se ha reconocido ningún cuadrante en este archivo.';
+      return;
+    }
+    renderDetectedMonths(file.name);
+    els.publishStatus.textContent =
+      parsedSheets.length === 1
+        ? `Leído correctamente: ${parsedSheets[0].sections.length} secciones, listo para publicar.`
+        : `Leídas ${parsedSheets.length} hojas. Revisa el nombre de cada mes antes de publicar.`;
     els.publishBtn.disabled = false;
   } catch (err) {
     console.error(err);
     els.publishStatus.textContent = 'No se ha podido leer el archivo. ¿Es un .xls o .xlsx del cuadrante?';
-    els.publishBtn.disabled = true;
   }
 });
 
-els.overwriteSelect.addEventListener('change', () => {
-  const selected = monthsCache.find((m) => m.id === els.overwriteSelect.value);
-  if (selected) els.monthLabel.value = selected.label;
-  updateOverwriteHint();
-});
+function guessLabelForSheet(sheet, filename) {
+  const fromTitle = parseMonthInfo(sheet.title || '');
+  if (fromTitle.month && fromTitle.year) {
+    const name = MES_NOMBRES[fromTitle.month - 1];
+    return `${name.charAt(0)}${name.slice(1).toLowerCase()} ${fromTitle.year}`;
+  }
+  const upperSheetName = (sheet.sheetName || '').toUpperCase();
+  const foundInSheetName = MES_NOMBRES.find((m) => upperSheetName.includes(m));
+  if (foundInSheetName) {
+    return `${foundInSheetName.charAt(0)}${foundInSheetName.slice(1).toLowerCase()} ${new Date().getFullYear()}`;
+  }
+  return guessMonthLabel(filename) || sheet.sheetName || '';
+}
 
-function updateOverwriteHint() {
-  if (els.overwriteSelect.value) {
-    const m = monthsCache.find((x) => x.id === els.overwriteSelect.value);
-    els.overwriteHint.hidden = false;
-    els.overwriteHint.textContent = `⚠️ Esto sustituirá el cuadrante ya publicado de "${m ? m.label : ''}".`;
+function renderDetectedMonths(filename) {
+  els.detectedMonths.innerHTML = '';
+  parsedSheets.forEach((sheet, idx) => {
+    const guessed = guessLabelForSheet(sheet, filename);
+
+    const item = document.createElement('div');
+    item.className = 'detected-month-item';
+    item.dataset.index = String(idx);
+
+    const row = document.createElement('label');
+    row.className = 'detected-month-check';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    checkbox.className = 'detected-month-enabled';
+
+    const labelInput = document.createElement('input');
+    labelInput.type = 'text';
+    labelInput.className = 'detected-month-label';
+    labelInput.value = guessed;
+    labelInput.addEventListener('input', () => updateDetectedHint(item, sheet));
+
+    row.appendChild(checkbox);
+    row.appendChild(labelInput);
+    item.appendChild(row);
+
+    const hint = document.createElement('p');
+    hint.className = 'detected-month-hint';
+    item.appendChild(hint);
+
+    els.detectedMonths.appendChild(item);
+    updateDetectedHint(item, sheet);
+  });
+}
+
+function updateDetectedHint(item, sheet) {
+  const labelInput = item.querySelector('.detected-month-label');
+  const hint = item.querySelector('.detected-month-hint');
+  const label = labelInput.value.trim();
+  const slug = slugify(label);
+  const existing = monthsCache.find((m) => m.id === slug);
+  const sectionsCount = sheet.sections.length;
+  if (existing) {
+    hint.textContent = `${sectionsCount} secciones · ⚠️ sustituirá el cuadrante ya publicado de "${existing.label}"`;
+    hint.classList.add('warn');
   } else {
-    els.overwriteHint.hidden = true;
+    hint.textContent = `${sectionsCount} secciones · se publicará como mes nuevo`;
+    hint.classList.remove('warn');
   }
 }
 
 els.publishBtn.addEventListener('click', async () => {
-  if (!parsedPending) return;
-  const label = els.monthLabel.value.trim();
-  if (!label) {
-    els.publishStatus.textContent = 'Ponle un nombre al mes antes de publicar (ej. "Septiembre 2026").';
+  const items = Array.from(els.detectedMonths.querySelectorAll('.detected-month-item'));
+  const selected = items.filter((item) => item.querySelector('.detected-month-enabled').checked);
+
+  if (selected.length === 0) {
+    els.publishStatus.textContent = 'No has seleccionado ningún mes para publicar.';
     return;
   }
 
-  let docId = els.overwriteSelect.value || slugify(label);
+  const overwriting = selected
+    .map((item) => {
+      const label = item.querySelector('.detected-month-label').value.trim();
+      return monthsCache.find((m) => m.id === slugify(label));
+    })
+    .filter(Boolean);
 
-  // Salvaguarda: si el slug coincide con un mes existente que NO se seleccionó a propósito, confirmar.
-  const collision = !els.overwriteSelect.value && monthsCache.find((m) => m.id === docId);
-  if (collision) {
-    const ok = confirm(`Ya existe un cuadrante publicado como "${collision.label}". ¿Quieres sustituirlo por este archivo?`);
+  if (overwriting.length > 0) {
+    const names = overwriting.map((m) => m.label).join(', ');
+    const ok = confirm(`Esto sustituirá estos meses ya publicados: ${names}. ¿Continuar?`);
     if (!ok) return;
   }
 
-  const { month, year } = parseMonthInfo(label);
-
   els.publishBtn.disabled = true;
-  els.publishStatus.textContent = 'Publicando...';
-  try {
-    await setDoc(doc(db, 'cuadrantes', docId), {
-      label,
-      month,
-      year,
-      data: parsedPending,
-      uploadedAt: serverTimestamp(),
-    });
-    els.publishStatus.textContent = `Publicado como "${label}". El grupo ya puede verlo.`;
-    parsedPending = null;
-    els.fileInput.value = '';
-    els.overwriteSelect.value = '';
-    updateOverwriteHint();
-    await loadMonthList();
-    els.monthSelect.value = docId;
-    await loadMonth(docId);
-  } catch (err) {
-    console.error(err);
-    els.publishStatus.textContent = 'Error al publicar. Revisa las reglas de Firestore y tu conexión.';
-  } finally {
-    els.publishBtn.disabled = false;
+  let okCount = 0;
+  let lastDocId = null;
+
+  for (const item of selected) {
+    const idx = Number(item.dataset.index);
+    const sheet = parsedSheets[idx];
+    const label = item.querySelector('.detected-month-label').value.trim();
+    if (!label) continue;
+
+    const docId = slugify(label);
+    const { month, year } = parseMonthInfo(label);
+    els.publishStatus.textContent = `Publicando "${label}"...`;
+    try {
+      await setDoc(doc(db, 'cuadrantes', docId), {
+        label,
+        month,
+        year,
+        data: { title: sheet.title, sections: sheet.sections },
+        uploadedAt: serverTimestamp(),
+      });
+      okCount++;
+      lastDocId = docId;
+    } catch (err) {
+      console.error(err);
+      els.publishStatus.textContent = `Error al publicar "${label}": ${err.code || err.message || 'desconocido'}`;
+      els.publishBtn.disabled = false;
+      return;
+    }
+  }
+
+  els.publishStatus.textContent = `Publicado${okCount === 1 ? '' : 's'} ${okCount} mes${okCount === 1 ? '' : 'es'} correctamente.`;
+  parsedSheets = [];
+  els.detectedMonths.innerHTML = '';
+  els.fileInput.value = '';
+  els.publishBtn.disabled = true;
+  await loadMonthList();
+  if (lastDocId) {
+    els.monthSelect.value = lastDocId;
+    await loadMonth(lastDocId);
   }
 });
 
@@ -272,7 +342,6 @@ async function loadMonthList() {
   monthsCache.sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month));
 
   els.monthSelect.innerHTML = '';
-  els.overwriteSelect.innerHTML = '<option value="">— Publicar como mes nuevo —</option>';
 
   if (monthsCache.length === 0) {
     els.monthSelect.hidden = true;
@@ -286,11 +355,6 @@ async function loadMonthList() {
     opt1.value = m.id;
     opt1.textContent = m.label;
     els.monthSelect.appendChild(opt1);
-
-    const opt2 = document.createElement('option');
-    opt2.value = m.id;
-    opt2.textContent = m.label;
-    els.overwriteSelect.appendChild(opt2);
   });
   return monthsCache[0].id;
 }

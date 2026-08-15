@@ -97,3 +97,28 @@ export function parseWorkbookArrayBuffer(arrayBuffer) {
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
   return parseCuadrante(aoa);
 }
+
+/**
+ * Lee TODAS las hojas de un libro con datos reconocibles (para Excel con
+ * varios meses, una hoja por mes). Ignora hojas vacías o irrelevantes.
+ * @param {ArrayBuffer} arrayBuffer
+ * @returns {Array<{ sheetName: string, title: string, sections: Array }>}
+ */
+export function parseWorkbookAllSheets(arrayBuffer) {
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+  const results = [];
+
+  wb.SheetNames.forEach((sheetName) => {
+    const ws = wb.Sheets[sheetName];
+    const ref = ws['!ref'];
+    if (!ref || XLSX.utils.decode_range(ref).e.r <= 1) return; // hoja vacía
+
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+    const parsed = parseCuadrante(aoa);
+    if (!parsed.sections || parsed.sections.length === 0) return; // no reconocible
+
+    results.push({ sheetName, title: parsed.title, sections: parsed.sections });
+  });
+
+  return results;
+}
