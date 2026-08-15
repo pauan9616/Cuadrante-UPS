@@ -46,20 +46,15 @@
 
 <section id="admin-panel" class="admin-panel" hidden>
   <h2>Publicar cuadrante</h2>
-  <p class="hint">Sube el Excel del mes. Se leerá automáticamente y podrás revisarlo antes de publicarlo.</p>
+  <p class="hint">Sube el Excel del mes (o uno con varios meses en distintas pestañas). Se leerá automáticamente y podrás revisarlo antes de publicarlo.</p>
   <p class="hint admin-note">⚠️ Este panel solo prepara lo que se va a <strong>publicar</strong>; no cambia lo que estás viendo. Para ver otro mes ya publicado, usa el desplegable de arriba, junto a "Acceder".</p>
-  <label for="overwrite-select" class="field-label">¿Sustituir un mes ya publicado, o publicar uno nuevo?</label>
   <div class="admin-row">
-    <select id="overwrite-select">
-      <option value="">— Publicar como mes nuevo —</option>
-    </select>
     <input type="file" id="file-input" accept=".xls,.xlsx" />
   </div>
+  <div id="detected-months" class="detected-months"></div>
   <div class="admin-row">
-    <input type="text" id="month-label" placeholder="Ej. Septiembre 2026" />
-    <button id="publish-btn" class="btn btn-primary" disabled>Publicar</button>
+    <button id="publish-btn" class="btn btn-primary" disabled>Publicar seleccionados</button>
   </div>
-  <p id="overwrite-hint" class="overwrite-hint" hidden></p>
   <p id="publish-status" class="hint"></p>
 
   <hr class="divider" />
