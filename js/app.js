@@ -6,6 +6,7 @@ import { POST_GROUPS, ABSENCE_CODES, WORKING_CODES } from './posts.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  setPersistence, browserSessionPersistence,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getFirestore, doc, setDoc, updateDoc, getDoc, getDocs, collection, serverTimestamp,
@@ -13,6 +14,11 @@ import {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+// La sesión solo dura mientras el navegador/pestaña esté abierto: al cerrarlo
+// del todo (no al minimizarlo) hay que volver a iniciar sesión.
+setPersistence(auth, browserSessionPersistence).catch((err) => {
+  console.error('No se pudo configurar la persistencia de sesión:', err);
+});
 const db = getFirestore(app);
 
 const $ = (sel) => document.querySelector(sel);
