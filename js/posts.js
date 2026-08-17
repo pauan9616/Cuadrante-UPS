@@ -9,39 +9,39 @@ export const POST_GROUPS = [
     id: 'conducciones',
     title: 'CONDUCCIONES',
     slots: [
-      { id: 'conducciones_1', label: 'Conducciones', count: 4 },
+      { id: 'conducciones_1', label: 'Conducciones', count: 4, shift: null },
     ],
   },
   {
     id: 'seguridad',
     title: 'SEGURIDAD',
     slots: [
-      { id: 'calabozos_manana', label: 'Calabozos Jefatura (7h–15h)', count: 3 },
-      { id: 'calabozos_tarde', label: 'Calabozos Jefatura (15h–22h)', count: 3 },
-      { id: 'calabozos_noche', label: 'Calabozos Jefatura (22h–7h)', count: 3 },
+      { id: 'calabozos_manana', label: 'Calabozos Jefatura (7h–15h)', count: 3, shift: 'M' },
+      { id: 'calabozos_tarde', label: 'Calabozos Jefatura (15h–22h)', count: 3, shift: 'T' },
+      { id: 'calabozos_noche', label: 'Calabozos Jefatura (22h–7h)', count: 3, shift: 'N' },
     ],
   },
   {
     id: 'jefatura_comp',
     title: 'SEGURIDAD JEFATURA COMPLEMENTARIO',
     slots: [
-      { id: 'jefatura_comp_1', label: 'Jefatura Complementario (7:30h–14:30h)', count: 1 },
+      { id: 'jefatura_comp_1', label: 'Jefatura Complementario (7:30h–14:30h)', count: 1, shift: 'M' },
     ],
   },
   {
     id: 'comisaria',
     title: 'COMISARÍA DE CENTRO',
     slots: [
-      { id: 'comisaria_manana', label: 'Comisaría Centro (07:30–14:30)', count: 1 },
-      { id: 'comisaria_tarde', label: 'Comisaría Centro (14:30–21:30)', count: 1 },
+      { id: 'comisaria_manana', label: 'Comisaría Centro (07:30–14:30)', count: 1, shift: 'M' },
+      { id: 'comisaria_tarde', label: 'Comisaría Centro (14:30–21:30)', count: 1, shift: 'T' },
     ],
   },
   {
     id: 'delegacion',
     title: 'DELEGACIÓN DEL GOBIERNO',
     slots: [
-      { id: 'delegacion_manana', label: 'Delegación (07:00–14:00)', count: 1 },
-      { id: 'delegacion_tarde', label: 'Delegación (14:00–21:00)', count: 1 },
+      { id: 'delegacion_manana', label: 'Delegación (07:00–14:00)', count: 1, shift: 'M' },
+      { id: 'delegacion_tarde', label: 'Delegación (14:00–21:00)', count: 1, shift: 'T' },
     ],
   },
 ];

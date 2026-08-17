@@ -554,17 +554,18 @@ function getWorkingPeopleGroupedForDay(dayNumber) {
   currentMonthDoc.data.sections.forEach((section) => {
     const idx = section.dayNumbers.indexOf(dayNumber);
     if (idx === -1) return;
-    const names = [];
+    const people = [];
     section.people.forEach((person, pi) => {
       const effective = effectiveShiftFor(section, pi, idx);
       // Seleccionable si está de mañana/tarde/noche, o si la casilla está en
       // blanco (turno todavía por decidir). Vacaciones, permisos, bajas,
       // liberaciones sindicales, etc. quedan excluidos.
       const eligible = !effective || WORKING_CODES.has(effective);
-      if (eligible) names.push(person.name);
+      if (eligible) people.push({ name: person.name, shift: effective || null });
     });
-    if (names.length > 0) {
-      groups.push({ sectionName: section.name, names: names.sort((a, b) => a.localeCompare(b, 'es')) });
+    if (people.length > 0) {
+      people.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      groups.push({ sectionName: section.name, people });
     }
   });
   return groups;
@@ -738,10 +739,72 @@ function appendAusenciasCard(dayNumber) {
 
 // ---------- Asignación de puestos (diálogo de edición) ----------
 
+// Rellena un <select> de asignación de puesto. Si el puesto tiene un turno
+// asociado (mañana/tarde/noche), separa primero a quienes ya tienen ese
+// turno ese día, y deja en un segundo bloque, aparte, al resto de personas
+// disponibles por si hay que recolocar a alguien de otro turno.
+function buildSlotOptions(select, workingGroups, slot, selectedName) {
+  const targetShift = slot.shift || null;
+
+  if (!targetShift) {
+    workingGroups.forEach((g) => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = g.sectionName;
+      g.people.forEach((person) => {
+        optgroup.appendChild(makeOption(person.name, person.name === selectedName));
+      });
+      select.appendChild(optgroup);
+    });
+    return;
+  }
+
+  let hasMatching = false;
+  workingGroups.forEach((g) => {
+    const matching = g.people.filter((p) => p.shift === targetShift);
+    if (matching.length === 0) return;
+    hasMatching = true;
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = g.sectionName;
+    matching.forEach((person) => {
+      optgroup.appendChild(makeOption(person.name, person.name === selectedName));
+    });
+    select.appendChild(optgroup);
+  });
+
+  const otherPeople = [];
+  workingGroups.forEach((g) => {
+    g.people.forEach((person) => {
+      if (person.shift !== targetShift) {
+        otherPeople.push({ ...person, sectionName: g.sectionName });
+      }
+    });
+  });
+
+  if (otherPeople.length > 0) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = hasMatching ? '— Añadir de otro turno —' : 'Nadie coincide con este turno — elegir de otro turno';
+    otherPeople.forEach((person) => {
+      const shiftLabel = person.shift ? codeInfo(person.shift).label : 'sin turno decidido';
+      const opt = makeOption(person.name, person.name === selectedName);
+      opt.textContent = `${person.name} (${person.sectionName} · ${shiftLabel})`;
+      optgroup.appendChild(opt);
+    });
+    select.appendChild(optgroup);
+  }
+}
+
+function makeOption(name, selected) {
+  const opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = name;
+  if (selected) opt.selected = true;
+  return opt;
+}
+
 function openPostAssign(dayNumber) {
   assignDayNumber = dayNumber;
   const workingGroups = getWorkingPeopleGroupedForDay(dayNumber);
-  const totalWorking = workingGroups.reduce((n, g) => n + g.names.length, 0);
+  const totalWorking = workingGroups.reduce((n, g) => n + g.people.length, 0);
   const existing = (currentMonthDoc.data.postAssignments && currentMonthDoc.data.postAssignments[dayNumber]) || {};
 
   els.postAssignTitle.textContent = `Asignar puestos — día ${dayNumber}`;
@@ -776,18 +839,7 @@ function openPostAssign(dayNumber) {
         emptyOpt.textContent = '— Sin asignar —';
         select.appendChild(emptyOpt);
 
-        workingGroups.forEach((g) => {
-          const optgroup = document.createElement('optgroup');
-          optgroup.label = g.sectionName;
-          g.names.forEach((name) => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            if (existingNames[i] === name) opt.selected = true;
-            optgroup.appendChild(opt);
-          });
-          select.appendChild(optgroup);
-        });
+        buildSlotOptions(select, workingGroups, slot, existingNames[i]);
 
         wrap.appendChild(select);
         groupDiv.appendChild(wrap);
