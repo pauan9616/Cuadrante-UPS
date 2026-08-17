@@ -339,7 +339,7 @@ async function loadMonthList() {
     }
     monthsCache.push({ id: d.id, label: data.label, month: month || 0, year: year || 0 });
   });
-  monthsCache.sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month));
+  monthsCache.sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
 
   els.monthSelect.innerHTML = '';
 
@@ -356,7 +356,14 @@ async function loadMonthList() {
     opt1.textContent = m.label;
     els.monthSelect.appendChild(opt1);
   });
-  return monthsCache[0].id;
+  // Por defecto se abre el mes en curso, si ya está publicado. Si no,
+  // se usa el más reciente de los publicados (el último de la lista,
+  // ya que el desplegable se muestra en orden ascendente).
+  const now = new Date();
+  const currentMonthEntry = monthsCache.find(
+    (m) => m.month === now.getMonth() + 1 && m.year === now.getFullYear()
+  );
+  return currentMonthEntry ? currentMonthEntry.id : monthsCache[monthsCache.length - 1].id;
 }
 
 async function loadMonth(docId) {
