@@ -46,7 +46,8 @@ h1, h2 { font-family: 'Space Grotesk', sans-serif; margin: 0; }
   max-width: 100%;
 }
 
-select#month-select {
+select#month-select,
+select#group-select {
   font-family: inherit;
   background: #1C2E4D;
   color: #fff;
