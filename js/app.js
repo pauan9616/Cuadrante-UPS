@@ -802,6 +802,17 @@ function makeOption(name, selected) {
   return opt;
 }
 
+// Devuelve el nombre final de un puesto: el elegido en el desplegable, o el
+// escrito a mano si se seleccionó "Persona externa".
+function resolveSlotValue(select) {
+  if (select.value === '__external__') {
+    const input = select.nextElementSibling;
+    const typed = input && input.value ? input.value.trim() : '';
+    return typed || null;
+  }
+  return select.value || null;
+}
+
 function openPostAssign(dayNumber) {
   assignDayNumber = dayNumber;
   const workingGroups = getWorkingPeopleGroupedForDay(dayNumber);
@@ -833,10 +844,6 @@ function openPostAssign(dayNumber) {
         const select = document.createElement('select');
         select.dataset.slotId = slot.id;
         select.dataset.slotIndex = String(i);
-        select.addEventListener('change', () => {
-          refreshPostAssignOptions();
-          updatePostAssignWarning();
-        });
 
         const emptyOpt = document.createElement('option');
         emptyOpt.value = '';
@@ -845,7 +852,43 @@ function openPostAssign(dayNumber) {
 
         buildSlotOptions(select, workingGroups, slot, existingNames[i]);
 
+        const externalOpt = document.createElement('option');
+        externalOpt.value = '__external__';
+        externalOpt.textContent = '✏️ Persona externa (escribir nombre)';
+        select.appendChild(externalOpt);
+
+        const externalInput = document.createElement('input');
+        externalInput.type = 'text';
+        externalInput.className = 'post-assign-external-input';
+        externalInput.placeholder = 'Nombre y apellidos';
+        externalInput.dataset.slotId = slot.id;
+        externalInput.dataset.slotIndex = String(i);
+        externalInput.hidden = true;
+        externalInput.addEventListener('input', updatePostAssignWarning);
+
+        // Si el valor guardado no coincide con nadie del grupo, es que era
+        // una persona externa escrita a mano: lo detectamos y lo mostramos.
+        const isKnownValue = Array.from(select.options).some((o) => o.value === existingNames[i]);
+        if (existingNames[i] && !isKnownValue) {
+          select.value = '__external__';
+          externalInput.hidden = false;
+          externalInput.value = existingNames[i];
+        }
+
+        select.addEventListener('change', () => {
+          const isExternal = select.value === '__external__';
+          externalInput.hidden = !isExternal;
+          if (isExternal) {
+            externalInput.focus();
+          } else {
+            externalInput.value = '';
+          }
+          refreshPostAssignOptions();
+          updatePostAssignWarning();
+        });
+
         wrap.appendChild(select);
+        wrap.appendChild(externalInput);
         groupDiv.appendChild(wrap);
       }
     });
@@ -873,7 +916,7 @@ function updatePostAssignWarning() {
     const slotId = sel.dataset.slotId;
     const idx = Number(sel.dataset.slotIndex);
     if (!grouped[slotId]) grouped[slotId] = [];
-    grouped[slotId][idx] = sel.value || null;
+    grouped[slotId][idx] = resolveSlotValue(sel);
   });
 
   const shortages = findStaffingShortages(grouped);
@@ -904,10 +947,12 @@ function refreshPostAssignOptions() {
   selects.forEach((sel) => {
     const currentValue = sel.value;
     const takenByOthers = new Set(
-      selects.filter((s) => s !== sel && s.value).map((s) => s.value)
+      selects
+        .filter((s) => s !== sel && s.value && s.value !== '__external__')
+        .map((s) => s.value)
     );
     Array.from(sel.options).forEach((opt) => {
-      if (opt.value === '') return;
+      if (opt.value === '' || opt.value === '__external__') return;
       const shouldHide = takenByOthers.has(opt.value) && opt.value !== currentValue;
       opt.hidden = shouldHide;
       opt.disabled = shouldHide;
@@ -934,7 +979,7 @@ els.postAssignSave.addEventListener('click', async () => {
     const slotId = sel.dataset.slotId;
     const idx = Number(sel.dataset.slotIndex);
     if (!grouped[slotId]) grouped[slotId] = [];
-    grouped[slotId][idx] = sel.value || null;
+    grouped[slotId][idx] = resolveSlotValue(sel);
   });
 
   const shortages = findStaffingShortages(grouped);
