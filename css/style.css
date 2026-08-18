@@ -406,6 +406,14 @@ select#overwrite-select {
   border-radius: 8px;
   background: #fff;
 }
+.post-assign-external-input {
+  font-family: inherit;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  background: #FFFBF2;
+  margin-top: 0.35rem;
+}
 .post-assign-warning {
   background: #FBEFD9;
   border: 1px solid #E8A33D;
