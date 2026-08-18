@@ -154,13 +154,32 @@
 <dialog id="rename-modal">
   <form id="rename-form" method="dialog">
     <div class="dialog-header">
-      <h2>Corregir nombre</h2>
+      <h2>Editar persona</h2>
       <button type="button" id="rename-close-x" class="dialog-close-x" aria-label="Cerrar">×</button>
     </div>
     <label>Nombre y apellidos<input type="text" id="rename-input" required /></label>
+    <label>Grupo<select id="rename-group-select"></select></label>
+    <label>Sección<select id="rename-section-select"></select></label>
+    <p id="rename-status" class="hint"></p>
+    <p class="hint">Si cambias de sección o de grupo, sus turnos quedan en blanco en el sitio nuevo para que los asignes ahí.</p>
     <div class="dialog-actions">
       <button type="button" id="rename-cancel" class="btn btn-ghost-dark">Cancelar</button>
-      <button type="submit" class="btn btn-primary">Guardar</button>
+      <button type="submit" id="rename-save-btn" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="add-person-modal">
+  <form id="add-person-form" method="dialog">
+    <div class="dialog-header">
+      <h2 id="add-person-title">Añadir persona</h2>
+      <button type="button" id="add-person-close-x" class="dialog-close-x" aria-label="Cerrar">×</button>
+    </div>
+    <label>Nombre y apellidos<input type="text" id="add-person-input" required /></label>
+    <p class="hint">Se añade con los turnos en blanco; los asignas después con el editor normal.</p>
+    <div class="dialog-actions">
+      <button type="button" id="add-person-cancel" class="btn btn-ghost-dark">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Añadir</button>
     </div>
   </form>
 </dialog>
