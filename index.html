@@ -149,6 +149,20 @@
   </form>
 </dialog>
 
+<dialog id="rename-modal">
+  <form id="rename-form" method="dialog">
+    <div class="dialog-header">
+      <h2>Corregir nombre</h2>
+      <button type="button" id="rename-close-x" class="dialog-close-x" aria-label="Cerrar">×</button>
+    </div>
+    <label>Nombre y apellidos<input type="text" id="rename-input" required /></label>
+    <div class="dialog-actions">
+      <button type="button" id="rename-cancel" class="btn btn-ghost-dark">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="save-bar" class="save-bar" hidden>
   <span id="save-bar-text">Tienes cambios sin guardar</span>
   <div class="save-bar-actions">
