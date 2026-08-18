@@ -1,10 +1,10 @@
 // posts.js
-// Estructura de "puestos" del parte diario, basada en el formato del Excel
-// de ejemplo. Para añadir, quitar o renombrar un puesto, basta con editar
-// este archivo — el formulario de asignación y el PDF del día se generan
-// automáticamente a partir de esta lista.
+// Estructura de "puestos" del parte diario, por grupo. Para añadir, quitar
+// o renombrar un puesto de un grupo, basta con editar su lista aquí abajo —
+// el formulario de asignación y el PDF del día se generan automáticamente
+// a partir de esta lista.
 
-export const POST_GROUPS = [
+const UPS_SEGURIDAD_POSTS = [
   {
     id: 'conducciones',
     title: 'CONDUCCIONES',
@@ -46,11 +46,46 @@ export const POST_GROUPS = [
   },
 ];
 
+// Puestos "de ejemplo" para GAC — sustituye este bloque por los puestos
+// reales de GAC en cuanto los tengas. Mientras tanto, el cuadrante, "Ver un
+// día" y la edición manual funcionan con normalidad; solo afecta a la
+// pantalla de "Asignar puestos de un día".
+const GAC_POSTS = [
+  {
+    id: 'gac_generico',
+    title: 'PUESTOS GAC (pendiente de definir)',
+    slots: [
+      { id: 'gac_puesto_1', label: 'Puesto 1', count: 1, shift: null, minCount: 0 },
+    ],
+  },
+];
+
+// Puestos "de ejemplo" para CIMACC 091 — mismo caso que GAC.
+const CIMACC_091_POSTS = [
+  {
+    id: 'cimacc_generico',
+    title: 'PUESTOS CIMACC 091 (pendiente de definir)',
+    slots: [
+      { id: 'cimacc_puesto_1', label: 'Puesto 1', count: 1, shift: null, minCount: 0 },
+    ],
+  },
+];
+
+export const POST_GROUPS_BY_GROUP = {
+  'ups-seguridad': UPS_SEGURIDAD_POSTS,
+  'gac': GAC_POSTS,
+  'cimacc-091': CIMACC_091_POSTS,
+};
+
+export function getPostGroups(groupId) {
+  return POST_GROUPS_BY_GROUP[groupId] || [];
+}
+
 // Códigos que cuentan como "ausencia" en el parte diario (no aparecen como
 // disponibles para asignar a un puesto, y sí aparecen en el bloque de
-// Ausencias del PDF).
+// Ausencias del PDF). Comunes a todos los grupos.
 export const ABSENCE_CODES = new Set(['V', 'B', 'P', 'AP', 'CH', 'L/S']);
 
 // Códigos que cuentan como "trabajando" ese día (aparecen como opciones
-// disponibles al asignar puestos).
+// disponibles al asignar puestos). Comunes a todos los grupos.
 export const WORKING_CODES = new Set(['M', 'T', 'N']);

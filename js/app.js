@@ -1,7 +1,8 @@
 import { firebaseConfig } from './firebase-config.js';
 import { CODES, WEEKEND_LETTERS, codeInfo } from './codes.js';
 import { parseWorkbookAllSheets } from './parser.js';
-import { POST_GROUPS, ABSENCE_CODES, WORKING_CODES } from './posts.js';
+import { getPostGroups, ABSENCE_CODES, WORKING_CODES } from './posts.js';
+import { GROUPS, DEFAULT_GROUP_ID } from './groups.js';
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
@@ -37,6 +38,8 @@ const els = {
   publishStatus: $('#publish-status'),
   monthSelect: $('#month-select'),
   monthSelectLabel: $('#month-select-label'),
+  groupSelect: $('#group-select'),
+  groupSelectLabel: $('#group-select-label'),
   editModeBtn: $('#edit-mode-btn'),
   legend: $('#legend'),
   cuadrante: $('#cuadrante'),
@@ -83,13 +86,23 @@ const WEEKDAY_FULL = { L: 'Lunes', M: 'Martes', X: 'Miércoles', J: 'Jueves', V:
 
 const MES_NOMBRES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
-let monthsCache = [];          // [{id, label, year, month}]
-let currentDocId = null;       // id del mes actualmente mostrado
+let monthsCache = [];          // [{id, label, year, month}] — solo del grupo actual
+let currentDocId = null;       // id del mes actualmente mostrado (incluye prefijo de grupo)
 let currentMonthDoc = null;    // { label, data:{title,sections} } - copia editable en memoria
+let currentGroupId = localStorage.getItem('cuadrante-grupo') || DEFAULT_GROUP_ID;
 let editMode = false;
 let dirty = false;
 let pendingEditCtx = null;     // {sectionIndex, personIndex, dayIndex} durante el diálogo de edición
 els.saveBar.style.display = 'none'; // estado inicial: sin cambios pendientes
+
+function groupDocId(label) {
+  const slug = slugify(label);
+  // El grupo por defecto (UPS Seguridad) mantiene los identificadores tal
+  // cual estaban antes de existir los grupos, para no duplicar ni romper
+  // nada de lo ya publicado. Los grupos nuevos sí llevan su prefijo, para
+  // no chocar nunca con los meses de otro grupo.
+  return currentGroupId === DEFAULT_GROUP_ID ? slug : `${currentGroupId}__${slug}`;
+}
 
 // ---------- Utilidades de mes ----------
 
@@ -251,7 +264,7 @@ function updateDetectedHint(item, sheet) {
   const labelInput = item.querySelector('.detected-month-label');
   const hint = item.querySelector('.detected-month-hint');
   const label = labelInput.value.trim();
-  const slug = slugify(label);
+  const slug = groupDocId(label);
   const existing = monthsCache.find((m) => m.id === slug);
   const sectionsCount = sheet.sections.length;
   if (existing) {
@@ -275,7 +288,7 @@ els.publishBtn.addEventListener('click', async () => {
   const overwriting = selected
     .map((item) => {
       const label = item.querySelector('.detected-month-label').value.trim();
-      return monthsCache.find((m) => m.id === slugify(label));
+      return monthsCache.find((m) => m.id === groupDocId(label));
     })
     .filter(Boolean);
 
@@ -295,7 +308,7 @@ els.publishBtn.addEventListener('click', async () => {
     const label = item.querySelector('.detected-month-label').value.trim();
     if (!label) continue;
 
-    const docId = slugify(label);
+    const docId = groupDocId(label);
     const { month, year } = parseMonthInfo(label);
     els.publishStatus.textContent = `Publicando "${label}"...`;
     try {
@@ -303,6 +316,7 @@ els.publishBtn.addEventListener('click', async () => {
         label,
         month,
         year,
+        grupo: currentGroupId,
         data: { title: sheet.title, sections: sheet.sections },
         uploadedAt: serverTimestamp(),
       });
@@ -343,6 +357,12 @@ async function loadMonthList() {
   monthsCache = [];
   snap.forEach((d) => {
     const data = d.data();
+    // Solo nos interesan los meses del grupo activo. Los documentos ya
+    // publicados antes de tener grupos (sin campo "grupo") se consideran
+    // del grupo por defecto, para no perder nada de lo ya publicado.
+    const docGroupId = data.grupo || DEFAULT_GROUP_ID;
+    if (docGroupId !== currentGroupId) return;
+
     let { month, year } = data;
     if (!month || !year) {
       const parsed = parseMonthInfo(data.label);
@@ -689,7 +709,7 @@ function renderShiftGroupedReport(dayNumber) {
 }
 
 function renderPostAssignmentReport(dayNumber, assignments) {
-  POST_GROUPS.forEach((group) => {
+  getPostGroups(currentGroupId).forEach((group) => {
     const card = document.createElement('div');
     card.className = 'day-section-card';
 
@@ -865,7 +885,7 @@ function openPostAssign(dayNumber) {
   els.postAssignStatus.textContent = '';
   els.postAssignBody.innerHTML = '';
 
-  POST_GROUPS.forEach((group) => {
+  getPostGroups(currentGroupId).forEach((group) => {
     const groupDiv = document.createElement('div');
     groupDiv.className = 'post-assign-group';
 
@@ -1061,7 +1081,7 @@ els.postAssignSave.addEventListener('click', async () => {
 // en posts.js. Devuelve la lista de puestos que se quedan cortos.
 function findStaffingShortages(grouped) {
   const shortages = [];
-  POST_GROUPS.forEach((group) => {
+  getPostGroups(currentGroupId).forEach((group) => {
     group.slots.forEach((slot) => {
       const minCount = slot.minCount || 0;
       if (minCount <= 0) return;
@@ -1246,9 +1266,53 @@ window.addEventListener('resize', () => {
   }, 200);
 });
 
+// ---------- Selector de grupo ----------
+
+function populateGroupSelect() {
+  els.groupSelect.innerHTML = '';
+  GROUPS.forEach((g) => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.label;
+    els.groupSelect.appendChild(opt);
+  });
+  els.groupSelect.value = currentGroupId;
+}
+
+async function switchToGroup(groupId) {
+  currentGroupId = groupId;
+  localStorage.setItem('cuadrante-grupo', groupId);
+  els.groupSelect.value = groupId;
+  setDirty(false);
+  editMode = false;
+  setDayReportVisible(false);
+  currentDocId = null;
+  currentMonthDoc = null;
+
+  const firstId = await loadMonthList();
+  if (firstId) {
+    els.monthSelect.value = firstId;
+    await loadMonth(firstId);
+  } else {
+    els.cuadrante.innerHTML = '';
+    els.legend.innerHTML = '';
+    els.pageTitle.textContent = 'Cuadrante';
+    els.emptyState.hidden = false;
+  }
+}
+
+els.groupSelect.addEventListener('change', async () => {
+  if (dirty && !confirm('Tienes cambios sin guardar. ¿Cambiar de grupo sin guardarlos?')) {
+    els.groupSelect.value = currentGroupId;
+    return;
+  }
+  await switchToGroup(els.groupSelect.value);
+});
+
 // ---------- Arranque ----------
 
 (async function init() {
+  populateGroupSelect();
   const firstId = await loadMonthList();
   if (firstId) {
     els.monthSelect.value = firstId;
