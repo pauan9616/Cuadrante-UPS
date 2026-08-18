@@ -271,6 +271,13 @@ select#overwrite-select {
 }
 .cuadrante.edit-mode td.editable:active { background: var(--weekend-tint); }
 
+.name-row-editable {
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1.5px var(--amber);
+  border-radius: 4px;
+}
+.name-row-editable:active { background: var(--weekend-tint); }
+
 /* ---------- Barra de guardado ---------- */
 .save-bar {
   position: fixed;
