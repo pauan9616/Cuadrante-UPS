@@ -67,6 +67,7 @@ const els = {
   postAssignModal: $('#post-assign-modal'),
   postAssignTitle: $('#post-assign-title'),
   postAssignBody: $('#post-assign-body'),
+  postAssignWarning: $('#post-assign-warning'),
   postAssignStatus: $('#post-assign-status'),
   postAssignCancel: $('#post-assign-cancel'),
   postAssignSave: $('#post-assign-save'),
@@ -832,7 +833,10 @@ function openPostAssign(dayNumber) {
         const select = document.createElement('select');
         select.dataset.slotId = slot.id;
         select.dataset.slotIndex = String(i);
-        select.addEventListener('change', refreshPostAssignOptions);
+        select.addEventListener('change', () => {
+          refreshPostAssignOptions();
+          updatePostAssignWarning();
+        });
 
         const emptyOpt = document.createElement('option');
         emptyOpt.value = '';
@@ -857,7 +861,40 @@ function openPostAssign(dayNumber) {
   }
 
   refreshPostAssignOptions();
+  updatePostAssignWarning();
   els.postAssignModal.showModal();
+}
+
+// Recalcula en tiempo real qué puestos no llegan al mínimo de personas, y
+// muestra u oculta el aviso dentro del propio formulario.
+function updatePostAssignWarning() {
+  const grouped = {};
+  els.postAssignBody.querySelectorAll('select').forEach((sel) => {
+    const slotId = sel.dataset.slotId;
+    const idx = Number(sel.dataset.slotIndex);
+    if (!grouped[slotId]) grouped[slotId] = [];
+    grouped[slotId][idx] = sel.value || null;
+  });
+
+  const shortages = findStaffingShortages(grouped);
+  if (shortages.length === 0) {
+    els.postAssignWarning.hidden = true;
+    els.postAssignWarning.innerHTML = '';
+    return;
+  }
+
+  els.postAssignWarning.hidden = false;
+  els.postAssignWarning.innerHTML = '';
+  const title = document.createElement('strong');
+  title.textContent = '⚠️ El cuadrante todavía no está completo:';
+  els.postAssignWarning.appendChild(title);
+  const ul = document.createElement('ul');
+  shortages.forEach((s) => {
+    const li = document.createElement('li');
+    li.textContent = `${s.label}: ${s.filled} de ${s.minCount} mínimo`;
+    ul.appendChild(li);
+  });
+  els.postAssignWarning.appendChild(ul);
 }
 
 // Oculta en cada desplegable a las personas ya elegidas en otro puesto,
@@ -900,6 +937,15 @@ els.postAssignSave.addEventListener('click', async () => {
     grouped[slotId][idx] = sel.value || null;
   });
 
+  const shortages = findStaffingShortages(grouped);
+  if (shortages.length > 0) {
+    const lines = shortages.map((s) => `• ${s.label}: ${s.filled} de ${s.minCount} mínimo`).join('\n');
+    const ok = confirm(
+      `El cuadrante no está completo:\n\n${lines}\n\n¿Seguro que quieres guardar así?`
+    );
+    if (!ok) return;
+  }
+
   if (!currentMonthDoc.data.postAssignments) currentMonthDoc.data.postAssignments = {};
   currentMonthDoc.data.postAssignments[assignDayNumber] = grouped;
 
@@ -923,6 +969,23 @@ els.postAssignSave.addEventListener('click', async () => {
     els.postAssignSave.disabled = false;
   }
 });
+
+// Comprueba, puesto por puesto, si se llega al mínimo de personas indicado
+// en posts.js. Devuelve la lista de puestos que se quedan cortos.
+function findStaffingShortages(grouped) {
+  const shortages = [];
+  POST_GROUPS.forEach((group) => {
+    group.slots.forEach((slot) => {
+      const minCount = slot.minCount || 0;
+      if (minCount <= 0) return;
+      const filled = (grouped[slot.id] || []).filter(Boolean).length;
+      if (filled < minCount) {
+        shortages.push({ label: slot.label, filled, minCount });
+      }
+    });
+  });
+  return shortages;
+}
 
 // ---------- Render ----------
 
