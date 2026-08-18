@@ -406,6 +406,18 @@ select#overwrite-select {
   border-radius: 8px;
   background: #fff;
 }
+.post-assign-warning {
+  background: #FBEFD9;
+  border: 1px solid #E8A33D;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.8rem;
+  font-size: 0.78rem;
+  color: #7A5A1E;
+}
+.post-assign-warning strong { display: block; margin-bottom: 0.3rem; font-family: 'Space Grotesk', sans-serif; }
+.post-assign-warning ul { margin: 0; padding-left: 1.1rem; }
+.post-assign-warning li { margin-bottom: 0.1rem; }
 .post-assign-slot optgroup {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
