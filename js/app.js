@@ -72,6 +72,11 @@ const els = {
   postAssignCancel: $('#post-assign-cancel'),
   postAssignSave: $('#post-assign-save'),
   postAssignCloseX: $('#post-assign-close-x'),
+  renameModal: $('#rename-modal'),
+  renameInput: $('#rename-input'),
+  renameCancel: $('#rename-cancel'),
+  renameCloseX: $('#rename-close-x'),
+  renameForm: $('#rename-form'),
 };
 
 const WEEKDAY_FULL = { L: 'Lunes', M: 'Martes', X: 'Miércoles', J: 'Jueves', V: 'Viernes', S: 'Sábado', D: 'Domingo' };
@@ -488,6 +493,43 @@ function applyCellEdit(value) {
   setDirty(true);
   reRender();
 }
+
+// ---------- Corregir nombre de una persona ----------
+
+let pendingRenameCtx = null; // {sectionIndex, personIndex}
+
+function openRenameEditor(sectionIndex, personIndex) {
+  const person = currentMonthDoc.data.sections[sectionIndex].people[personIndex];
+  pendingRenameCtx = { sectionIndex, personIndex };
+  els.renameInput.value = person.name;
+  els.renameModal.showModal();
+  els.renameInput.focus();
+  els.renameInput.select();
+}
+
+function closeRenameEditor() {
+  pendingRenameCtx = null;
+  els.renameModal.close();
+}
+
+els.renameCancel.addEventListener('click', closeRenameEditor);
+els.renameCloseX.addEventListener('click', closeRenameEditor);
+els.renameModal.addEventListener('click', (e) => {
+  if (e.target === els.renameModal) closeRenameEditor();
+});
+
+els.renameForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (!pendingRenameCtx) return;
+  const newName = els.renameInput.value.trim();
+  if (!newName) return;
+  const { sectionIndex, personIndex } = pendingRenameCtx;
+  currentMonthDoc.data.sections[sectionIndex].people[personIndex].name = newName;
+  pendingRenameCtx = null;
+  els.renameModal.close();
+  setDirty(true);
+  reRender();
+});
 
 function reRender() {
   if (currentMonthDoc) render(currentMonthDoc);
@@ -1115,7 +1157,12 @@ function renderSection(section, sectionIndex) {
 
   // Filas de personas
   section.people.forEach((person, personIndex) => {
-    namesCol.appendChild(nameRowDiv(person.name));
+    const nameRow = nameRowDiv(person.name);
+    if (editMode) {
+      nameRow.classList.add('name-row-editable');
+      nameRow.addEventListener('click', () => openRenameEditor(sectionIndex, personIndex));
+    }
+    namesCol.appendChild(nameRow);
 
     const dataRow = document.createElement('tr');
     person.shifts.forEach((code, dayIndex) => {
