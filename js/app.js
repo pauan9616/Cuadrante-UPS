@@ -77,9 +77,19 @@ const els = {
   postAssignCloseX: $('#post-assign-close-x'),
   renameModal: $('#rename-modal'),
   renameInput: $('#rename-input'),
+  renameGroupSelect: $('#rename-group-select'),
+  renameSectionSelect: $('#rename-section-select'),
+  renameStatus: $('#rename-status'),
+  renameSaveBtn: $('#rename-save-btn'),
   renameCancel: $('#rename-cancel'),
   renameCloseX: $('#rename-close-x'),
   renameForm: $('#rename-form'),
+  addPersonModal: $('#add-person-modal'),
+  addPersonTitle: $('#add-person-title'),
+  addPersonInput: $('#add-person-input'),
+  addPersonCancel: $('#add-person-cancel'),
+  addPersonCloseX: $('#add-person-close-x'),
+  addPersonForm: $('#add-person-form'),
 };
 
 const WEEKDAY_FULL = { L: 'Lunes', M: 'Martes', X: 'Miércoles', J: 'Jueves', V: 'Viernes', S: 'Sábado', D: 'Domingo' };
@@ -95,13 +105,17 @@ let dirty = false;
 let pendingEditCtx = null;     // {sectionIndex, personIndex, dayIndex} durante el diálogo de edición
 els.saveBar.style.display = 'none'; // estado inicial: sin cambios pendientes
 
-function groupDocId(label) {
+function docIdForGroup(groupId, label) {
   const slug = slugify(label);
   // El grupo por defecto (UPS Seguridad) mantiene los identificadores tal
   // cual estaban antes de existir los grupos, para no duplicar ni romper
   // nada de lo ya publicado. Los grupos nuevos sí llevan su prefijo, para
   // no chocar nunca con los meses de otro grupo.
-  return currentGroupId === DEFAULT_GROUP_ID ? slug : `${currentGroupId}__${slug}`;
+  return groupId === DEFAULT_GROUP_ID ? slug : `${groupId}__${slug}`;
+}
+
+function groupDocId(label) {
+  return docIdForGroup(currentGroupId, label);
 }
 
 // ---------- Utilidades de mes ----------
@@ -522,10 +536,70 @@ function openRenameEditor(sectionIndex, personIndex) {
   const person = currentMonthDoc.data.sections[sectionIndex].people[personIndex];
   pendingRenameCtx = { sectionIndex, personIndex };
   els.renameInput.value = person.name;
+  els.renameStatus.textContent = '';
+
+  els.renameGroupSelect.innerHTML = '';
+  GROUPS.forEach((g) => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.id === currentGroupId ? `${g.label} (actual)` : g.label;
+    if (g.id === currentGroupId) opt.selected = true;
+    els.renameGroupSelect.appendChild(opt);
+  });
+
+  populateRenameSectionsFromCurrentMonth(sectionIndex);
+
   els.renameModal.showModal();
   els.renameInput.focus();
   els.renameInput.select();
 }
+
+function populateRenameSectionsFromCurrentMonth(currentSectionIndex) {
+  els.renameSectionSelect.innerHTML = '';
+  els.renameSectionSelect.disabled = false;
+  currentMonthDoc.data.sections.forEach((section, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = i === currentSectionIndex ? `${section.name} (actual)` : section.name;
+    if (i === currentSectionIndex) opt.selected = true;
+    els.renameSectionSelect.appendChild(opt);
+  });
+}
+
+els.renameGroupSelect.addEventListener('change', async () => {
+  const targetGroupId = els.renameGroupSelect.value;
+  els.renameStatus.textContent = '';
+
+  if (targetGroupId === currentGroupId) {
+    populateRenameSectionsFromCurrentMonth(pendingRenameCtx ? pendingRenameCtx.sectionIndex : -1);
+    return;
+  }
+
+  els.renameSectionSelect.innerHTML = '';
+  els.renameSectionSelect.disabled = true;
+  els.renameStatus.textContent = 'Buscando ese mes en el otro grupo...';
+  try {
+    const targetDocId = docIdForGroup(targetGroupId, currentMonthDoc.label);
+    const snap = await getDoc(doc(db, 'cuadrantes', targetDocId));
+    if (!snap.exists()) {
+      const targetLabel = GROUPS.find((g) => g.id === targetGroupId)?.label || targetGroupId;
+      els.renameStatus.textContent = `${targetLabel} no tiene publicado "${currentMonthDoc.label}" todavía. No se puede mover ahí.`;
+      return;
+    }
+    const targetData = snap.data();
+    targetData.data.sections.forEach((section, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = section.name;
+      els.renameSectionSelect.appendChild(opt);
+    });
+    els.renameSectionSelect.disabled = false;
+    els.renameStatus.textContent = '';
+  } catch (err) {
+    console.error(err);
+    els.renameStatus.textContent = `Error al buscar ese grupo: ${err.code || err.message || 'desconocido'}`;
+  }
+});
 
 function closeRenameEditor() {
   pendingRenameCtx = null;
@@ -538,15 +612,111 @@ els.renameModal.addEventListener('click', (e) => {
   if (e.target === els.renameModal) closeRenameEditor();
 });
 
-els.renameForm.addEventListener('submit', (e) => {
+els.renameForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!pendingRenameCtx) return;
   const newName = els.renameInput.value.trim();
   if (!newName) return;
+
+  const targetGroupId = els.renameGroupSelect.value;
   const { sectionIndex, personIndex } = pendingRenameCtx;
-  currentMonthDoc.data.sections[sectionIndex].people[personIndex].name = newName;
-  pendingRenameCtx = null;
-  els.renameModal.close();
+  const sourceSection = currentMonthDoc.data.sections[sectionIndex];
+
+  if (targetGroupId === currentGroupId) {
+    // Traslado dentro del mismo cuadrante (o solo cambio de nombre).
+    const targetSectionIndex = Number(els.renameSectionSelect.value);
+    if (targetSectionIndex === sectionIndex) {
+      sourceSection.people[personIndex].name = newName;
+    } else {
+      const targetSection = currentMonthDoc.data.sections[targetSectionIndex];
+      sourceSection.people.splice(personIndex, 1);
+      targetSection.people.push({
+        name: newName,
+        shifts: new Array(targetSection.numDays).fill(null),
+      });
+    }
+    pendingRenameCtx = null;
+    els.renameModal.close();
+    setDirty(true);
+    reRender();
+    return;
+  }
+
+  // Traslado a OTRO grupo: son dos documentos distintos de Firestore, así
+  // que se guarda todo al momento (no se deja pendiente de "Guardar
+  // cambios"), para no dejar a la persona a medias entre dos grupos.
+  const targetSectionIndex = Number(els.renameSectionSelect.value);
+  if (Number.isNaN(targetSectionIndex)) return;
+
+  els.renameSaveBtn.disabled = true;
+  els.renameStatus.textContent = 'Moviendo...';
+  try {
+    const targetDocId = docIdForGroup(targetGroupId, currentMonthDoc.label);
+    const targetSnap = await getDoc(doc(db, 'cuadrantes', targetDocId));
+    if (!targetSnap.exists()) throw new Error('Ese mes ya no existe en el grupo destino.');
+    const targetDocData = targetSnap.data();
+    targetDocData.data.sections[targetSectionIndex].people.push({
+      name: newName,
+      shifts: new Array(targetDocData.data.sections[targetSectionIndex].numDays).fill(null),
+    });
+    await updateDoc(doc(db, 'cuadrantes', targetDocId), {
+      data: targetDocData.data,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Ahora quitamos a la persona de la sección de origen y lo guardamos también.
+    sourceSection.people.splice(personIndex, 1);
+    await updateDoc(doc(db, 'cuadrantes', currentDocId), {
+      data: currentMonthDoc.data,
+      updatedAt: serverTimestamp(),
+    });
+
+    pendingRenameCtx = null;
+    els.renameModal.close();
+    reRender();
+  } catch (err) {
+    console.error(err);
+    els.renameStatus.textContent = `Error al mover a otro grupo: ${err.code || err.message || 'desconocido'}`;
+  } finally {
+    els.renameSaveBtn.disabled = false;
+  }
+});
+
+// ---------- Añadir persona nueva a una sección ----------
+
+let pendingAddSectionIndex = null;
+
+function openAddPerson(sectionIndex) {
+  pendingAddSectionIndex = sectionIndex;
+  const section = currentMonthDoc.data.sections[sectionIndex];
+  els.addPersonTitle.textContent = `Añadir persona — ${section.name}`;
+  els.addPersonInput.value = '';
+  els.addPersonModal.showModal();
+  els.addPersonInput.focus();
+}
+
+function closeAddPerson() {
+  pendingAddSectionIndex = null;
+  els.addPersonModal.close();
+}
+
+els.addPersonCancel.addEventListener('click', closeAddPerson);
+els.addPersonCloseX.addEventListener('click', closeAddPerson);
+els.addPersonModal.addEventListener('click', (e) => {
+  if (e.target === els.addPersonModal) closeAddPerson();
+});
+
+els.addPersonForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (pendingAddSectionIndex == null) return;
+  const name = els.addPersonInput.value.trim();
+  if (!name) return;
+
+  const section = currentMonthDoc.data.sections[pendingAddSectionIndex];
+  section.people.push({ name, shifts: new Array(section.numDays).fill(null) });
+
+  pendingAddSectionIndex = null;
+  els.addPersonModal.close();
   setDirty(true);
   reRender();
 });
@@ -1201,6 +1371,15 @@ function renderSection(section, sectionIndex) {
   wrapper.appendChild(namesCol);
   wrapper.appendChild(daysScroll);
   card.appendChild(wrapper);
+
+  if (editMode) {
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-ghost-dark add-person-btn';
+    addBtn.textContent = '+ Añadir persona';
+    addBtn.addEventListener('click', () => openAddPerson(sectionIndex));
+    card.appendChild(addBtn);
+  }
 
   // Referencias para poder sincronizar alturas después de insertar en el DOM.
   card._daysTable = daysTable;
