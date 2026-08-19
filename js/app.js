@@ -54,6 +54,7 @@ const els = {
   cellEditOptions: $('#cell-edit-options'),
   cellEditCancel: $('#cell-edit-cancel'),
   exportPdfBtn: $('#export-pdf-btn'),
+  exportExcelBtn: $('#export-excel-btn'),
   splashScreen: $('#splash-screen'),
   splashGuestBtn: $('#splash-guest-btn'),
   splashLoginBtn: $('#splash-login-btn'),
@@ -64,6 +65,7 @@ const els = {
   dayReport: $('#day-report'),
   dayReportBack: $('#day-report-back'),
   dayReportPdf: $('#day-report-pdf'),
+  dayReportExcel: $('#day-report-excel'),
   dayReportTitle: $('#day-report-title'),
   dayReportBody: $('#day-report-body'),
   assignPostsBtn: $('#assign-posts-btn'),
@@ -420,6 +422,7 @@ async function loadMonth(docId) {
   setDirty(false);
   editMode = false;
   setDayReportVisible(false);
+  currentDayNumber = null;
   els.editModeBtn.disabled = !auth.currentUser;
   els.assignPostsBtn.disabled = !auth.currentUser;
   updateEditModeBtn();
@@ -731,6 +734,49 @@ els.exportPdfBtn.addEventListener('click', () => {
   window.print();
 });
 
+els.exportExcelBtn.addEventListener('click', () => {
+  exportMonthToExcel();
+});
+
+function uniqueSheetName(wb, base) {
+  // Los nombres de hoja de Excel no pueden pasar de 31 caracteres ni
+  // llevar ciertos símbolos, y no puede haber dos hojas con el mismo nombre.
+  let name = String(base).replace(/[\\/*?:[\]]/g, '').substring(0, 31) || 'Hoja';
+  let n = 2;
+  while (wb.SheetNames.includes(name)) {
+    const suffix = ` (${n})`;
+    name = name.substring(0, 31 - suffix.length) + suffix;
+    n++;
+  }
+  return name;
+}
+
+function exportMonthToExcel() {
+  if (!currentMonthDoc) return;
+  const wb = XLSX.utils.book_new();
+
+  currentMonthDoc.data.sections.forEach((section) => {
+    const rows = [];
+    rows.push([section.name, ...section.dayNumbers]);
+    rows.push(['', ...section.weekdays.map((w) => w || '')]);
+    if (section.groupShift) {
+      rows.push(['Turno del grupo', ...section.groupShift.map((c) => c || '')]);
+    }
+    section.people.forEach((person, pi) => {
+      const values = person.shifts.map((code, i) => {
+        const effective = code || (section.groupShift ? section.groupShift[i] : null);
+        return effective || '';
+      });
+      rows.push([person.name, ...values]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, section.name));
+  });
+
+  XLSX.writeFile(wb, `Cuadrante ${currentMonthDoc.label}.xlsx`);
+}
+
 // ---------- Vista de un día concreto ----------
 
 function getMaxDayCount() {
@@ -743,6 +789,7 @@ function getMaxDayCount() {
 
 let dayPickerMode = 'view'; // 'view' o 'assign'
 let assignDayNumber = null;
+let currentDayNumber = null; // día actualmente mostrado en "Ver un día"
 
 function openDayPicker(mode) {
   if (!currentMonthDoc) return;
@@ -770,6 +817,65 @@ els.dayPickerCancel.addEventListener('click', () => els.dayPickerModal.close());
 
 els.dayReportBack.addEventListener('click', () => setDayReportVisible(false));
 els.dayReportPdf.addEventListener('click', () => window.print());
+els.dayReportExcel.addEventListener('click', () => {
+  if (currentDayNumber != null) exportDayToExcel(currentDayNumber);
+});
+
+function exportDayToExcel(dayNumber) {
+  if (!currentMonthDoc) return;
+  const rows = [];
+  rows.push([currentMonthDoc.data.title]);
+  rows.push([`Día ${dayNumber} — ${currentMonthDoc.label}`]);
+  rows.push([]);
+
+  const assignments = currentMonthDoc.data.postAssignments && currentMonthDoc.data.postAssignments[dayNumber];
+
+  if (assignments) {
+    getPostGroups(currentGroupId).forEach((group) => {
+      rows.push([group.title]);
+      group.slots.forEach((slot) => {
+        const names = assignments[slot.id] || [];
+        for (let i = 0; i < slot.count; i++) {
+          const label = slot.count > 1 ? `${slot.label} (${i + 1})` : slot.label;
+          rows.push([label, names[i] || 'Sin asignar']);
+        }
+      });
+      rows.push([]);
+    });
+
+    const ausencias = [];
+    currentMonthDoc.data.sections.forEach((section) => {
+      const idx = section.dayNumbers.indexOf(dayNumber);
+      if (idx === -1) return;
+      section.people.forEach((person, pi) => {
+        const effective = effectiveShiftFor(section, pi, idx);
+        if (effective && ABSENCE_CODES.has(effective)) {
+          ausencias.push([person.name, `${effective} · ${codeInfo(effective).label}`]);
+        }
+      });
+    });
+    if (ausencias.length > 0) {
+      rows.push(['AUSENCIAS']);
+      ausencias.forEach((r) => rows.push(r));
+    }
+  } else {
+    currentMonthDoc.data.sections.forEach((section) => {
+      const idx = section.dayNumbers.indexOf(dayNumber);
+      if (idx === -1) return;
+      rows.push([section.name]);
+      section.people.forEach((person, pi) => {
+        const effective = effectiveShiftFor(section, pi, idx);
+        rows.push([person.name, effective ? `${effective} · ${codeInfo(effective).label}` : 'Sin dato']);
+      });
+      rows.push([]);
+    });
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, `Dia ${dayNumber}`));
+  XLSX.writeFile(wb, `Parte diario ${dayNumber} - ${currentMonthDoc.label}.xlsx`);
+}
 
 function setDayReportVisible(visible) {
   els.dayReport.style.display = visible ? 'flex' : 'none';
@@ -805,6 +911,7 @@ function getWorkingPeopleGroupedForDay(dayNumber) {
 }
 
 function showDayReport(dayNumber) {
+  currentDayNumber = dayNumber;
   let weekdayLabel = '';
   currentMonthDoc.data.sections.forEach((section) => {
     const idx = section.dayNumbers.indexOf(dayNumber);
